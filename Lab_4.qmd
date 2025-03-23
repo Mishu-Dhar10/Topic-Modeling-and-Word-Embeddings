@@ -1,0 +1,1074 @@
+---
+title: "Lab_4"
+format: pdf
+editor: visual
+---
+
+## Loading Libraries
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| include: false
+
+#install.packages("quanteda")
+library(quanteda)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(text) 
+library(word2vec)
+```
+
+## Part 1: Topic Modeling
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+fb_congrees <- read.csv('/Users/mishudhar/Desktop/Machine Learning for Social Science/lab4/fb-congress-data3.csv')
+
+# check the dimenstion of the data
+dim(fb_congrees)
+# names of the variables
+colnames(fb_congrees)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# check the first few rows
+head(fb_congrees)
+
+```
+
+There are 6752 rows and 4 columns in this dataset. The name of the variables are "doc_id" "screen_name", "party", and "message".
+
+### 2 (i) Corspus
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+library(quanteda)
+
+# creating a corpus from the dataset
+corpus_fb <- corpus(fb_congrees, 
+                    text_field = "message", 
+                    docid_field = "doc_id", 
+                    meta = list(screen_name = fb_congrees$screen_name, party = fb_congrees$party))
+
+# summary of the corpus
+# summary(corpus_fb)
+
+
+```
+
+### 2 (ii) Tokenization
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# tokenizing the corpus with the specified conditions
+fb_tokens <- tokens(corpus_fb, 
+                    remove_punct = TRUE, 
+                    remove_numbers = TRUE, 
+                    remove_symbols = TRUE, 
+                    remove_url = TRUE, 
+                    padding = FALSE)
+
+# inspecting the tokens
+# print(fb_tokens)
+```
+
+### 2 (iii)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# remove English stopwords from the tokens
+fb_tokens_clean <- tokens_remove(fb_tokens, stopwords("en"), padding = FALSE)
+
+# inspecting the cleaned tokens
+# print(fb_tokens_clean)
+```
+
+### 2 (iv)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# first 3 tokenized and cleaned texts
+print(fb_tokens_clean[1:3])
+
+```
+
+### 2 (v)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# transforming into document_term_matrix form
+dtm_fb <- dfm(fb_tokens_clean)
+
+# how does it look?
+print(dtm_fb)
+```
+
+### 2 (vi)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# removing infrequent words (those occurring less than 5 times)
+trimmed_dtm_fb <- dfm_trim(dtm_fb, min_termfreq = 5)
+
+# calculating the row sums (the number of words in each document)
+rowsums <- rowSums(trimmed_dtm_fb)
+
+# keep those documents that have at least 10 words
+keep_ids <- which(rowsums >= 10)
+dtm_fb_final <- trimmed_dtm_fb[keep_ids,]
+
+# the dimensions of the final document-term matrix
+dim(dtm_fb_final)
+
+```
+
+After pre-processing, the resulting document-term matrix contains 5748 documents and 5484 unique terms. This means we retained 5748 Facebook posts that have at least 10 words and 5484 words that appear in at least 5 posts. This reduced set will be used for further analysis.
+
+### 3 Topic Modeling
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| include: false
+
+# install.packages("topicmodels")
+library(topicmodels)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+Lda_model <- LDA(dtm_fb_final, 
+                 k = 50,            
+                 method = "Gibbs",
+                 control = list(seed = 1234, iter = 1000))  
+
+```
+
+### 4
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting the 15 terms with the highest probability for each topic
+top_15 <- get_terms(Lda_model, 15)
+
+# Print the top terms for each topic to skim them
+print(top_15)
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+
+# topics of interest (Topic 1, 9, 40, 45, 48)
+topics_of_interest <- c(1, 9, 40, 45, 48)
+selected_topics <- top_15[, topics_of_interest]
+
+# show the terms for the selected topics
+print(selected_topics)
+
+```
+
+### Topic 1: Tax Reformation
+
+Topic 1 is about tax reformation. The main words in this topic are "tax," "reform," "plan," "families," and "middle class." I chose this topic because tax reform is an important issue that affects families, especially the middle class, and it's often debated in American Congress (also in western countries). Additionally, I noticed a lot of content about U.S. taxes and taxpayers' money on social media, which made this topic interesting to explore.
+
+### Topic 9: Political Rhetoric
+
+Topic 9 is about political rhetoric. It includes words like "America," "nation," "stand," "dreamers," and "immigrants." I chose this topic because immigration has been a key political issue, especially related to policies about Dreamers and the role of immigrants in the country. Considering the upcoming U.S. election, American politicians often address these issues in their speeches or interviews using phrases like "we are the greatest nation in the world" or "where do we stand today compared to our great history," which makes this topic particularly relevant.
+
+### Topic 40: Russian Invlovement
+
+It includes words like "investigation," "Russia," "FBI," and "intelligence." This was a major political issue in 2017 following the U.S. election, regarding the alleged Russian influence on the election. I chose this topic because of its significance to U.S. politics and society.
+
+### Topic 45: Social Welfare
+
+The main words here are "families," "children," "home," "opportunity," and "working." I chose this topic because the well-being of families and children is a key focus of social welfare policies. It is important to explore policies that provide support for family life, improve living conditions, and create opportunities for children to thrive, especially in relation to social welfare programs aimed at helping working families.
+
+### Topic 48: Sustainable Development
+
+The main words in this topic include "energy," "future," "climate," "industry," "progress," "power," "environment," and "clean." These terms suggest a focus on sustainability, environmental protection, and clean energy. The inclusion of words like "science," "technology," and "environmental" highlights the role of innovation in addressing climate change and advancing clean energy solutions. I labeled this topic Sustainable development because it reflects discussions around environmental progress, climate change, and the future of clean energy industries.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# lebeling the selected topics
+
+topic_labels <- c("Tax Reform", "Political Rhetoric",
+                  "Russian Involvement",
+                  "Social Welfare",
+                  "Sustainable Development")
+
+# assigning labels to the topics of interest
+names(topic_labels) <- topics_of_interest
+
+```
+
+### Bar Charts for Each Topic
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# extracting the term probabilities for each topic
+posterior_probability <- posterior(Lda_model)$terms
+
+# Function to plot top 15 words for a topic
+plot_topic <- function(topic_index, topic_label) {
+  terms <- top_15[, topic_index]  
+  prob <- posterior_probability[topic_index, terms]
+  
+  # creating a data frame for ggplot
+  df <- data.frame(term = terms, probability = prob)
+  
+  # Plot the top 15 words with their probabilities
+  ggplot(df, aes(x = reorder(term, -probability), y = probability)) +
+    geom_bar(stat = "identity", fill = "blue") +
+    coord_flip() +
+    labs(x = "Terms", y = "Probability", title = paste("Top 15 words for Topic", topic_index, "-", topic_label)) +
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),  
+      panel.grid.minor = element_blank(),  
+      axis.text.x = element_text(size = 12, color = "black"),  
+      axis.text.y = element_text(size = 12, color = "black"),  
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5)  
+    )
+}
+
+# Plot for each selected topic
+for (i in topics_of_interest) {
+  print(plot_topic(i, topic_labels[as.character(i)]))
+}
+
+
+```
+
+### General Assesment
+
+In my opinion, among all the topics, there are a few "junk" topics, such as topic 47, topic 26, topic 21, topic 23, topic 35, and topic 8. In these topics, the words seem random and do not fit together in a meaningful way. For example, in topic 8, the words include "Jewish," "Texas," "university," "de," and "San," which don’t form a clear theme. Similarly, in topic 57, most of the words are verbs like "make," "can," "making," and "calling," which don't add much to a specific topic.
+
+However, most of the topics make sense and are clearly themed. In my selected topics, the words are distinct and meaningful. For instance, in the topic I labeled "Sustainable Development" , words like "environment," "climate," "energy," "industry," and "future" all relate well to sustainability and environmental discussions. In the "Tax Reform" topic, words like "pay," "money," "tax," "families," and "working" are all clearly connected to tax-related issues.
+
+The "Political Rhetoric" topic has some relevant words like "country," "world," "nation," and "immigrants," though I was hoping for more distinct terms. Still, it captures the idea of political discourse in the U.S. In the "Russian Involvement" topic, the words are clearly focused, with terms like "democracy," "Russian," "intelligence," "security," and "investigation," all reflecting the discussions around alleged Russian influence in the 2017 U.S. election.
+
+Finally, the "Soacial Welfare" topic is also well-themed, with words like "child," "kids," "support," "better," and "raise," all related to family and social well-being.
+
+### 5
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# the posterior distribution (topic proportions for each document)
+posterior_distribution <- posterior(Lda_model)$topics
+
+# Russian Involvement or Influence (Topic 40)
+topic_40 <- 40
+top_docs_topic_40 <- order(posterior_distribution[, topic_40], decreasing = TRUE)[1:3]
+
+# sustainable development (Topic 48)
+topic_48 <- 48
+top_docs_topic_48 <- order(posterior_distribution[, topic_48], decreasing = TRUE)[1:3]
+
+# printing the document IDs for these topics
+print("Top 3 documents for Russian Investigation (Topic 40):")
+print(top_docs_topic_40)
+
+print("Top 3 documents for Sustainable Development (Topic 48):")
+print(top_docs_topic_48)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Fetch the actual text of the top 3 documents for each topic
+
+# For Russian Ifleuence (Topic 40)
+top_texts_topic_40 <- fb_congrees$message[top_docs_topic_40]
+
+# For Sustainable Development (Topic 48)
+top_texts_topic_48 <- fb_congrees$message[top_docs_topic_48]
+
+# Print the texts
+print("Top 3 texts for Russian Influence:")
+print(top_texts_topic_40)
+
+print("Top 3 texts for Sustainable Development:")
+print(top_texts_topic_48)
+
+
+```
+
+Based on the texts retrieved for topic 40 and topic 48, the documents do not seem to match the expected themes. For topic 40, the documents talk about healthcare, tax policies, firearm suppressors, and a general Washington update, which don't align with the idea of the Russian involvement. This suggests that the topic model may have misclassified these documents or that they are only loosely connected to the theme. For topic 48, the content is mixed. One document talks about reforms to the Veterans Affairs system, which is not directly related to sustainability, and another is a lighthearted note about receiving a large Christmas card. However, the third document discusses supporting families and building a strong future for children, which somewhat aligns with social development, though it focuses more on social welfare than environmental sustainability. Overall, while the top words for these topics are clear, the documents retrieved do not always reflect those themes accurately, suggesting the topic model might not have captured the core ideas well.
+
+### 6. Topic Model with K = 3
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# estimating a new topic model with K = 3
+Lda_model_k3 <- LDA(dtm_fb_final, k = 3, method = "Gibbs", control = list(seed = 1234, iter = 1000))
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting the top 15 words from each topic
+top_terms_k3 <- get_terms(Lda_model_k3, 15)
+
+# top terms for each of the 3 topics
+print(top_terms_k3)
+
+```
+
+"Topic 1" can be labeled as "Politics and Governance". The words include "president," "trump," "congress," "country," and "law," which all relate to political discussions and national governance. The words make sense together, and the topic is clearly focused on politics and security.
+
+"Topic 2" can be labeled as "Community and Veterans". The main words are "veterans," "community," "service," and "district." These words suggest discussions about veterans' services and community-related topics. While it’s a bit broad, the words fit well together. I believe this is related to war veterans and involves engaging them in various community services or initiating several community programs to make their lives more convenient when they return from overseas.
+
+"Topic 3" can be labeled as "Healthcare and Tax Reform". The words "health," "care," "bill," "tax," and "families" point to discussions about healthcare policies and tax reform. These words might make sense together as healthcare and taxes are common issues debated in relation to families and government policy.
+
+Overall, I think the topics in the K = 3 model are broad but still make sense. Each one has a clear focus: politics, community services, and healthcare/tax reform. However, they are more general compared to the K = 50 model, which captured more specific themes.
+
+### Which of the two K's do I prefer?
+
+The K = 50 model captures specific themes with more detail, as seen in the top words for topics like Russian Investigation and Sustainable Development. However, when we retrieved the top documents for these topics, the documents did not match the expected themes. This suggests that while the model did a good job defining topics, it struggled with correctly classifying the documents. On the other hand, the K = 3 model is simpler and easier to interpret, with broader themes that cover larger topics. It did not provide the same level of detail as the K = 50 model, but it was more straightforward in terms of topic labeling. The downside of K = 3 is that it mixes different subjects into the same topic, making it less useful for capturing specific discussions. Considering these outcomes of our analysis, I believe it would be a good idea to try more values for K to see which one works best in terms of both defining clear themes and correctly classifying the documents. This approach might help find a balance between detail and accuracy in document classification.
+
+But between these two K values, I would prefer K = 3 because the words are more distinct and clear compared to K = 50.
+
+### 7 (i)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# get the topic proportions for the K = 3 model
+topic_proportions_k3 <- posterior(Lda_model_k3)$topics  
+
+# computing the prevalence of each topic across all documents (without normalization)
+topic_prevalence_k3 <- colSums(topic_proportions_k3)
+
+# finding the most prevalent topic
+most_prevalent_topic_k3 <- which.max(topic_prevalence_k3)
+print(paste("The most prevalent topic is Topic", most_prevalent_topic_k3))
+
+# printing the topic prevalence for all topics
+print(topic_prevalence_k3)
+
+
+```
+
+### Creating a Bar chart
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+labeled_topics_k3 <- c("Politics and Governance", "Community and Veterans", "Healthcare and Tax Reform")
+
+# creating a data frame for the labeled topic prevalence
+df_k3 <- data.frame(
+  Topic = labeled_topics_k3,
+  Prevalence = topic_prevalence_k3
+)
+
+# Ploting the bar chart 
+
+ggplot(df_k3, aes(y = Topic, x = Prevalence)) +  
+  geom_bar(stat = "identity", fill = "blue") +  
+  geom_text(aes(label = round(Prevalence, 0)), hjust = -0.1, size = 5) +
+  labs(title = "Prevalence of Topics in K = 3 Model", y = "Topic", x = "Prevalence") +  
+  theme_minimal() +  # Use a minimal theme
+  theme(
+    panel.grid = element_blank(),  
+    axis.text.y = element_text(size = 12),  
+    axis.title.x = element_text(size = 14),
+    axis.title.y = element_text(size = 14),
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5)  
+  )
+
+
+```
+
+The bar chart shows how frequently each of the three topics appears across all the documents in the K = 3 model. The three topics are Politics and Governance, Healthcare and Tax Reform, and Community and Veterans. The prevalence, or frequency, of each topic is shown on the x-axis, and all three topics have similar values, close to 1900. This means that each of these topics is discussed about equally in the dataset, with no one topic standing out as being much more important than the others. The model seems to capture a balanced view of the discussions, dividing the content fairly evenly among these three topics.
+
+### 7 (ii)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Subset the party information to match the retained documents
+
+party_kept <- fb_congrees$party[keep_ids]
+
+# merging the topic proportions with the party information
+df_with_party <- data.frame(topic_proportions_k3, party = party_kept)
+
+# spliting the data by party (Democrats vs. Republicans)
+df_democrats <- subset(df_with_party, party == "Democrat")
+df_republicans <- subset(df_with_party, party == "Republican")
+
+# Performing t-tests to compare topic prevalence between Democrats and Republicans
+
+# t-test for Politics and Governance (Topic 1)
+t_test_politics <- t.test(df_democrats$X1, df_republicans$X1)  
+print("T-test for Politics and Governance (Topic 1)")
+print(t_test_politics)
+
+# t-test for Healthcare and Tax Reform (Topic 2)
+t_test_healthcare <- t.test(df_democrats$X2, df_republicans$X2)
+print("T-test for Healthcare and Tax Reform (Topic 2)")
+print(t_test_healthcare)
+
+# t-test for Community and Veterans (Topic 3)
+t_test_community <- t.test(df_democrats$X3, df_republicans$X3)
+print("T-test for Community and Veterans (Topic 3)")
+print(t_test_community)
+
+
+
+```
+
+The results show significant differences in how Democrats and Republicans discuss certain topics. For Politics and Governance, Democrats have an average prevalence of 0.337, while Republicans have 0.327. Although Democrats talk about this topic slightly more than Republicans, the difference is small but statistically significant (p-value = 1.784e-07). For Healthcare and Tax Reform, Republicans discuss this topic much more frequently than Democrats, with an average prevalence of 0.350 for Republicans and 0.320 for Democrats. This difference is highly significant (p-value \< 2.2e-16). Lastly, for Community and Veterans, Democrats have an average prevalence of 0.343, while Republicans have 0.324. The difference here is also significant (p-value \< 2.2e-16). These results suggest that Republicans tend to focus more on healthcare and tax reform, while Democrats are more focused on community and veterans' issues.
+
+## Bonus Attempt
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Split into 80% training and 20% test sets
+set.seed(1234)  # seed for reproducibility
+train_index <- sample(seq_len(nrow(dtm_fb_final)), size = 0.8 * nrow(dtm_fb_final))
+
+# creating training and test sets
+dtm_train <- dtm_fb_final[train_index, ]  # 80% of the data
+dtm_test <- dtm_fb_final[-train_index, ]  # Remaining 20% of the data
+
+# converting the document-term matrices into matrix
+dtm_train <- as(dtm_train, "matrix")  
+dtm_test <- as(dtm_test, "matrix")
+
+```
+
+### for loop
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# range of K values to try
+k_values <- c(3, 10, 25, 50, 75, 100, 200)
+
+# initializing a vector to store the perplexity values
+perplexity_values <- numeric(length(k_values))
+
+# Loop through each K value
+for (i in seq_along(k_values)) {
+  k <- k_values[i]
+  
+  # Estimate a topic model on the training set
+  lda_model <- LDA(dtm_train, k = k, method = "Gibbs", control = list(seed = 1234, iter = 1000))
+  
+  # compute perplexity on the test set
+  perplexity_values[i] <- perplexity(lda_model, newdata = dtm_test)
+  
+  # print progress
+  print(paste("Computed perplexity for K =", k))
+}
+
+# printing out the computed perplexity values
+print(perplexity_values)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# creating a data frame to create plot
+perplexity_df <- data.frame(K = k_values, Perplexity = perplexity_values)
+
+
+ggplot(perplexity_df, aes(x = K, y = Perplexity)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Perplexity vs. Number of Topics (K)", x = "Number of Topics (K)", y = "Perplexity") +
+  theme_minimal()
+
+
+```
+
+Based on the plot of Perplexity vs. Number of Topics (K), we can interpret it as follows. As the number of topics increases from 3 to around 100, the perplexity decreases, showing that adding more topics helps the model better capture the structure of the data. Lower perplexity means better performance. The lowest perplexity is around K = 100, which indicates that 100 topics provide a good balance between having enough topics to capture details in the data without overfitting. After K = 100, perplexity starts to increase again, which means adding more topics, like K = 200, leads to overfitting or unnecessary complexity. In this case, the model may capture noise rather than useful patterns. So, K = 100 seems to be the most reasonable choice because it offers the best balance between model complexity and performance. Choosing a lower or higher K, such as 3 or 200, might result a less optimal model, as shown by the higher perplexity values.
+
+## Part 2: Word Embedding
+
+### 1. Data Processing
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# importing the dataset again
+fb_congress_data <- read.csv('/Users/mishudhar/Desktop/Machine Learning for Social Science/lab4/fb-congress-data3.csv', stringsAsFactors = FALSE)
+
+# creating a corpus
+posts_corpus <- corpus(x = fb_congress_data,
+                       text_field = "message",
+                       meta = list("screen_name"),
+                       docid_field = 'doc_id')
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# tokenizing and cleaning the 
+mytokens <- tokens(x = posts_corpus, 
+                   remove_punct = TRUE, 
+                   remove_numbers = TRUE, 
+                   remove_symbols = TRUE,
+                   remove_url = TRUE,
+                   padding = FALSE)
+                   
+  
+mytokens <-   tokens_select(x = mytokens,selection = 'remove',
+                            valuetype = 'glob', 
+                            pattern = '@', 
+                            padding = FALSE)
+
+
+# Remove english stop words
+mytokens <-   tokens_remove(x = mytokens,
+                            stopwords("en"), 
+                            padding = FALSE)
+
+
+
+
+# tokens lowercase
+mytokens <- tokens_tolower(x = mytokens)
+
+# Collapse tokens into strings (for embedding training)
+txt <- sapply(mytokens, function(x) paste(x, collapse = ' '))
+
+```
+
+### 2. Word Embeddings
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+
+# Fit the word2vec model to all documents (CBOW model with 15 negative samples)
+set.seed(4321)  
+
+# Fit word2vec model
+system.time(w2v <- word2vec(x = txt,          # The processed text (cleaned and tokenized)
+                            type = "cbow",    # CBOW model
+                            window = 5,       # Context window of +-5 words
+                            dim = 50,         # Embedding dimensionality
+                            iter = 50,        # Number of iterations
+                            hs = FALSE,       # Negative sampling
+                            negative = 15))   # 15 negative samples per observation
+
+
+```
+
+### 3.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# creating a Document-Feature Matrix (DFM) to check word frequencies
+dfm_fb <- dfm(mytokens)
+word_freqs <- featfreq(dfm_fb)  # calculating word frequencies
+
+# sorting and inspecting the most frequent words
+top_words <- sort(word_freqs, decreasing = TRUE)
+# Top 20 most frequent words
+head(top_words, 20)  
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# focal words: president, healthcare, economy (my selection or interest)
+focal_words <- c("president", "trump", "american")
+
+# retrieve the 10 nearest terms for each word
+nearest_terms <- predict(w2v, focal_words, type = "nearest", top_n = 10)
+
+# the result
+print(nearest_terms)
+
+
+```
+
+The results make sense overall. For the word "president," the nearest terms include "administration," "donald," "barack," and "impeachment," which are all related to the context of political leadership and recent U.S. presidents. This shows that the word embedding model has captured the relationships between these terms. For "trump," the closest words include "trump’s," "obama," "elect," and "resignation," which are also relevant to political discussions, especially regarding Trump’s presidency and related actions. Lastly, for "american," the nearest words include "freedom," "america’s," "deserve," and "america," which all fit well with the theme of American identity and values, or the way it is written and discussed in the media or world. Overall, the results seem reasonable because the words identified as being similar are closely related to the focal terms in the context of U.S. politics.
+
+### 4 (i)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting the whole embedding matrix from the word2vec model
+embedding <- as.matrix(w2v)
+
+# checking the dimensions of the embedding matrix
+dim(embedding)  
+
+
+
+```
+
+### 4 (ii)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# extract embedding vectors for "king", "man", and "woman"
+king_vector <- embedding[rownames(embedding) == "king", ]
+man_vector <- embedding[rownames(embedding) == "man", ]
+woman_vector <- embedding[rownames(embedding) == "woman", ]
+
+# createing the kingtowoman vector by performing the vector operation
+kingtowoman <- king_vector - man_vector + woman_vector
+
+```
+
+### 4 (iii)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# find the 20 most similar words to kingtowoman vector
+similar_words <- word2vec::word2vec_similarity(x = kingtowoman, y = embedding, top_n = 20)
+
+# observe the result
+print(similar_words)
+
+
+```
+
+The result does not show "queen" in the top 20 most similar words to the kingtowoman vector. The words that appear, such as "luther," "suffrage," and "basketball," seem unrelated to the expected analogy. There are a few possible reasons for this. The dataset we are using, which consists of U.S. Congress Facebook posts, may not contain enough references to words like "king," "queen," "man," and "woman" in contexts that would allow the model to learn these classical analogy relationships. The word embeddings are trained on the available data, so if these relationships were not common in the dataset, the model might struggle to capture them. Words like "A", "O" or "laid" appearing in the top results could suggest that there is some noise in the embeddings, with frequently occurring words dominating the results. In this case, the model likely learned different relationships that are more relevant to U.S. politics and social discussions, rather than the kind of gender-role analogy represented by "king" and "queen." If we were working with a dataset more focused on literature or general knowledge, probably then we would be more likely to see "queen" appear in the analogy task.
+
+### 4 (iv)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# loading the pre-trained GloVe model
+pretrained <- readRDS('/Users/mishudhar/Desktop/Machine Learning for Social Science/lab4/glove6B200d (1).rds')
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# number of dimensions (columns)
+embedding_dimensions <- ncol(pretrained)
+print(paste("Number of embedding dimensions:", embedding_dimensions))
+
+# number of words (rows)
+num_words <- nrow(pretrained)
+print(paste("Number of words with embedding vectors:", num_words))
+
+```
+
+The pre-trained embedding model contains 200 embedding dimensions, meaning each word is represented by a 200-dimensional vector. Additionally, the model has embedding vectors for 400,000 words. This means that the model was trained on a large corpus and can represent 400,000 unique words with 200-dimensional vectors.
+
+### 4 (v)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting embedding vectors for "king", "man", and "woman" from the pretrained model
+king_vector_pretrained <- pretrained["king", ]
+man_vector_pretrained <- pretrained["man", ]
+woman_vector_pretrained <- pretrained["woman", ]
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# creating the kingtowoman vector using the pre-trained embeddings
+kingtowoman_pretrained <- king_vector_pretrained - man_vector_pretrained + woman_vector_pretrained
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Find the 20 most similar words to the kingtowoman vector in the pre-trained model
+similar_words_pretrained <- word2vec::word2vec_similarity(x = kingtowoman_pretrained, y = pretrained, top_n = 20)
+
+# the result
+print(similar_words_pretrained)
+
+
+```
+
+In the results from the pre-trained embedding model, "queen" appears as the second most similar word to the kingtowoman vector. This shows that the pre-trained model successfully captured the analogy where "king" is to "man" as "queen" is to "woman." Other related words like "princess," "prince," "throne," and "emperor" also appear in the top 20, which further shows the model understands relationships within royal and gender-related contexts. The pre-trained model performs better because it was trained on a large and diverse set of data from Wikipedia and news articles, which includes many examples of these words used together. In contrast, the self-trained model did not capture this relationship, likely because the dataset it was trained on (U.S. Congress Facebook posts) did not contain enough relevant examples. The pre-trained model has broader knowledge, which helps it understand these kinds of analogies better.
+
+### 4 (vi)
+
+Based on the focus of the Facebook/Congress model, which was trained on U.S. Congress Facebook posts, it is less likely to accurately capture occupational gender bias. This is because that dataset may not include enough varied occupations or gender-related discussions. On the other hand, the pre-trained GloVe model, which was trained on a large and diverse dataset like Wikipedia and news articles, would be much better at capturing these biases. The pre-trained model probably seen more examples of different occupations and gender roles, making it more reliable for calculating occupational gender bias. So, if we were to calculate the bias scores, the pre-trained model would likely give more accurate and meaningful results.
+
+### 5
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# spliting the data into Democrats and Republicans
+democrat_data <- fb_congress_data[fb_congress_data$party == "Democrat", ]
+republican_data <- fb_congress_data[fb_congress_data$party == "Republican", ]
+
+```
+
+### Process the data for democrats
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# tokenizing and cleaning data for Democrats
+democrat_tokens <- tokens(x = democrat_data$message, 
+                          remove_punct = TRUE, 
+                          remove_numbers = TRUE, 
+                          remove_symbols = TRUE, 
+                          remove_url = TRUE, 
+                          padding = FALSE)
+
+# Remove '@' symbols
+democrat_tokens <- tokens_select(x = democrat_tokens, 
+                                 selection = 'remove',
+                                 valuetype = 'glob', 
+                                 pattern = '@', 
+                                 padding = FALSE)
+
+# Remove English stopwords
+democrat_tokens <- tokens_remove(x = democrat_tokens, 
+                                 stopwords("en"), 
+                                 padding = FALSE)
+
+# convert tokens back into strings for word embedding
+democrat_txt <- sapply(democrat_tokens, function(x) paste(x, collapse = ' '))
+
+# Train word2vec for Democrats
+w2v_democrat <- word2vec(democrat_txt, type = "cbow", window = 5, dim = 50, iter = 50, negative = 15)
+
+```
+
+### For Republicans
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# tokenizing and cleaning data for Republicans
+republican_tokens <- tokens(x = republican_data$message, 
+                            remove_punct = TRUE, 
+                            remove_numbers = TRUE, 
+                            remove_symbols = TRUE, 
+                            remove_url = TRUE, 
+                            padding = FALSE)
+
+# Remove '@' symbols
+republican_tokens <- tokens_select(x = republican_tokens, 
+                                   selection = 'remove',
+                                   valuetype = 'glob', 
+                                   pattern = '@', 
+                                   padding = FALSE)
+
+# Remove English stopwords
+republican_tokens <- tokens_remove(x = republican_tokens, 
+                                   stopwords("en"), 
+                                   padding = FALSE)
+
+# convert tokens back into strings for word embedding
+republican_txt <- sapply(republican_tokens, function(x) paste(x, collapse = ' '))
+
+# Train word2vec for Republicans
+w2v_republican <- word2vec(republican_txt, type = "cbow", window = 5, dim = 50, iter = 50, negative = 15)
+
+```
+
+### Comparing Nearest Terms for Specific Words
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# finding nearest words to "healthcare" in Democrat embeddings
+nearest_dem_abortion <- predict(w2v_democrat, c("healthcare"), type = "nearest", top_n = 10)
+print(nearest_dem_abortion)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# finding nearest words to "healthcare" in Republican embeddings
+nearest_rep_americans <- predict(w2v_republican, c("healthcare"), type = "nearest", top_n = 10)
+print(nearest_rep_americans)
+
+
+```
+
+I can see some differences, and they moderately align with my expectations. Democrats tend to use softer words like "coverage," "insurance," "health," "care," and "procedures" when discussing healthcare. These words reflect a focus on providing or improving access to healthcare, which aligns with how Democrats often present themselves.
+
+On the other hand, Republicans tend to use more critical and stronger words when discussing healthcare. Words like "broken," "failing," "reforms," and "repealing" are more confrontational and align with the Republican stance on criticizing existing healthcare policies, especially the Affordable Care Act (ACA). This reflects their political rhetoric, which often emphasizes the need for change or dismantling of current systems.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+
+# finding nearest words to "veteran" in Democrat embeddings
+nearest_dem_abortion <- predict(w2v_democrat, c("veteran"), type = "nearest", top_n = 10)
+print(nearest_dem_abortion)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# finding nearest words to "veteran" in Republican embeddings
+nearest_dem_abortion <- predict(w2v_republican, c("veteran"), type = "nearest", top_n = 10)
+print(nearest_dem_abortion)
+
+
+```
+
+I can see some differences, and they moderately align with my expectations. Democrats tend to use words like "vets," "suicide," "veterans," "mission," and "wounds" when discussing veterans. These words suggest a focus on the well-being and support of veterans, addressing mental health and physical challenges they may face. On the other hand, Republicans use words like "WWII," "Flight," "veteran," "owned," and "Military" when discussing veterans. These terms emphasize the honor, service, and historical contributions of veterans, reflecting a focus on their roles in the military and their achievements. Overall, the results align with my expectations, showing that Democrats emphasize support and assistance for veterans, while Republicans highlight their service and contributions to the military.
+
+## Bonus Task
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Import positive and negative word lists
+positive_words <- readLines('/Users/mishudhar/Desktop/Machine Learning for Social Science/lab4/positive.txt')
+negative_words <- readLines('/Users/mishudhar/Desktop/Machine Learning for Social Science/lab4/OneDrive_3_21-10-2024/negative.txt')
+
+```
+
+### For Democrats
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# converting word2vec model to a matrix for Democrats
+embedding_dem <- as.matrix(w2v_democrat)
+
+# extracting vectors for positive and negative words from Democrats' embeddings
+positive_vectors_dem <- embedding_dem[which(rownames(embedding_dem) %in% positive_words), ]
+negative_vectors_dem <- embedding_dem[which(rownames(embedding_dem) %in% negative_words), ]
+
+# computing average vectors for positive and negative word lists for Democrats
+positive_avg_vector_dem <- apply(positive_vectors_dem, 2, mean)
+negative_avg_vector_dem <- apply(negative_vectors_dem, 2, mean)
+
+# computinh negative sentiment dimension for Democrats (negative - positive)
+sentiment_dimension_dem <- negative_avg_vector_dem - positive_avg_vector_dem
+
+# computing similarity for all words to the negative sentiment dimension (excluding negative words)
+word_indices_dem <- setdiff(rownames(embedding_dem), negative_words)
+word_sentiment_scores_dem <- word2vec_similarity(x = sentiment_dimension_dem, 
+                                                 y = embedding_dem[word_indices_dem, ], 
+                                                 top_n = 50)
+
+# creating a data frame with the words and their sentiment similarity scores
+word_sentiment_df_dem <- data.frame(
+  term = word_sentiment_scores_dem$term2,
+  similarity = word_sentiment_scores_dem$similarity
+)
+
+# sorting the data frame by similarity score (ascending order) and add ranks
+word_sentiment_df_dem <- word_sentiment_df_dem[order(word_sentiment_df_dem$similarity), ]
+word_sentiment_df_dem$rank <- seq_len(nrow(word_sentiment_df_dem))
+
+# top 50 most negatively associated words with ranks for Democrats
+strongest_negative_words_dem <- head(word_sentiment_df_dem, 50)
+print(strongest_negative_words_dem)
+
+```
+
+### For Republicans
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# converting word2vec model to a matrix for Republicans
+embedding_rep <- as.matrix(w2v_republican)
+
+# extracting vectors for positive and negative words from Republicans' embeddings
+positive_vectors_rep <- embedding_rep[which(rownames(embedding_rep) %in% positive_words), ]
+negative_vectors_rep <- embedding_rep[which(rownames(embedding_rep) %in% negative_words), ]
+
+# computing average vectors for positive and negative word lists for Republicans
+positive_avg_vector_rep <- apply(positive_vectors_rep, 2, mean)
+negative_avg_vector_rep <- apply(negative_vectors_rep, 2, mean)
+
+# computing negative sentiment dimension for Republicans (negative - positive)
+sentiment_dimension_rep <- negative_avg_vector_rep - positive_avg_vector_rep
+
+# computing similarity for all words to the negative sentiment dimension (excluding negative words)
+word_indices_rep <- setdiff(rownames(embedding_rep), negative_words)
+word_sentiment_scores_rep <- word2vec_similarity(x = sentiment_dimension_rep, 
+                                                 y = embedding_rep[word_indices_rep, ], 
+                                                 top_n = 50)
+
+# creating a data frame with the words and their sentiment similarity scores
+word_sentiment_df_rep <- data.frame(
+  term = word_sentiment_scores_rep$term2,
+  similarity = word_sentiment_scores_rep$similarity
+)
+
+# sorting the data frame by similarity score (ascending order) and add ranks
+word_sentiment_df_rep <- word_sentiment_df_rep[order(word_sentiment_df_rep$similarity), ]
+word_sentiment_df_rep$rank <- seq_len(nrow(word_sentiment_df_rep))
+
+# top 50 most negatively associated words with ranks for Republicans
+strongest_negative_words_rep <- head(word_sentiment_df_rep, 50)
+print(strongest_negative_words_rep)
+
+
+```
+
+The results show some clear differences in the words that have the strongest negative associations for Democrats and Republicans. For Democrats, words like TrumpCare, repeal, replacement, deficit, and subsidies appear frequently. These terms reflect concerns about healthcare reforms and economic issues, such as Republican efforts to repeal the Affordable Care Act and worries about budget cuts and deficits.
+
+For Republicans, words like sanctuary, terrorist, government’s, and rules are more common. These words focus on issues like national security, government regulations, and law enforcement. Words like wildfires, violence, and victims suggest concern about natural disasters and personal safety.
+
+When we look at the rankings of these words, we can see that both parties share some terms, such as deficit, but they likely use them differently. For Democrats, deficit may be linked to concerns about spending cuts, while Republicans may refer to it in the context of government overspending. Other shared words like cover, billion, and attempt appear for both parties, but the ranking of these words and their context differ.
+
+Overall, the rankings reflect each party’s priorities, with Democrats focusing more on healthcare and social policy, while Republicans are more concerned about security.
+
+### Bonus 7
+
+I tried but my code did not work (though it is not obligatory)
