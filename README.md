@@ -38,5 +38,7 @@ Key Findings
 - Republicans focus more on tax reform and healthcare criticism, while Democrats emphasize social welfare and community issues.
 - The self-trained word embeddings reflected partisan language use, while pre-trained models captured broader semantic relationships.
 - T-tests confirmed statistically significant differences in topic engagement between parties.
+
+- 
 Conclusion
 This project combines unsupervised learning with political text analysis to reveal thematic and linguistic patterns in political discourse. It highlights the usefulness of computational methods for analyzing large-scale social and political communication data.
